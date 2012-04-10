@@ -1,0 +1,209 @@
+<?php
+
+/**
+ * @file Main module file
+ */
+
+//
+// Drupal hooks
+//
+
+define('PROJECT_POPUP_FUNCTION_SUFFIX', '_colorbox_popup');
+
+/**
+ * Implements of hook_init()
+ */
+function colorbox_popup_init() {
+  drupal_add_library('system', 'drupal.ajax');
+  drupal_add_js(drupal_get_path('module', 'colorbox_popup') . '/js/colorbox_popup_modal.js');
+}
+
+/**
+ * Implements hook_menu().
+ * @return array
+ */
+function colorbox_popup_menu() {
+  return array(
+    'colorbox-popup' => array(
+      'page callback' => 'colorbox_popup_callback',
+      'page arguments' => array(),
+      'access callback' => TRUE,
+      'type' => MENU_CALLBACK,
+      'delivery callback' => 'ajax_deliver',
+      'theme callback' => 'ajax_base_page_theme',
+    ),
+  );
+}
+
+/**
+ * Implements hook_preprocess_link().
+ * Add ajax handlers to popup-links
+ *
+ * @param $vars
+ *
+ * @return void
+ */
+function colorbox_popup_process_link(&$vars) {
+  static $ids;
+  if (empty($ids)) {
+    $ids = array();
+  }
+
+  $id =& $vars['options']['attributes']['id'];
+  $ajax =& $vars['options']['ajax'];
+  if ($ajax) {
+    if (!$id) {
+      $id = 'colorbox-popup-' . abs(crc32($vars['text'] . $vars['path']));
+    }
+
+    if (in_array($id, $ids)) {
+      return;
+    }
+
+    $ids[] = $id;
+
+    $url = url('colorbox-popup/nojs', array('absolute' => TRUE));
+    $vars['path'] = $url;
+    $ajax_default = array(
+      'event' => 'click',
+      'url' => $url,
+      'progress' => array(
+        'message' => '',
+        'type' => 'throbber',
+      ),
+    );
+    $ajax = array_merge((array)$ajax, $ajax_default);
+    $settings = array(
+      'ajax' => array(
+        $id => $ajax,
+      )
+    );
+    drupal_add_js($settings, 'setting');
+  }
+}
+
+//
+// Callbacks
+//
+
+/**
+ * Callback for `colorbox-popup/%`
+ *
+ * @param $callback
+ *
+ * @return mixed
+ */
+function colorbox_popup_callback() {
+
+  if (arg(1) == 'nojs') {
+    drupal_goto();
+  }
+
+  $commands = array();
+
+  $callback =& $_POST['callback'];
+  // callback function should have `_colorbox_popup` suffix in security considerations
+  $callback = (string)$callback . PROJECT_POPUP_FUNCTION_SUFFIX;
+
+  // get arguments
+  $args =& $_POST['args'];
+  $args = (array)$args;
+
+  if (function_exists($callback)) {
+    $commands = (array)call_user_func_array($callback, $args);
+  }
+
+  // wrap commands
+  if (!isset($commands['#commands'])) {
+    $output = array('#type' => 'ajax', '#commands' => $commands);
+  }
+  else {
+    $output = $commands;
+  }
+
+  return $output;
+}
+
+//
+// Misc functions
+//
+
+/**
+ * Invoke modal window
+ *
+ * @param $data
+ * @param string $type
+ * @param array $box_info
+ *
+ * @return array
+ */
+function colorbox_popup_init_modal($data, $type = 'html', $box_info = array()) {
+  $data_default = array(
+    'title' => '',
+    'html' => array(),
+    'width' => NULL,
+    'height' => NULL,
+  );
+
+  // rename `content` to `html`
+  if (!empty($data['content'])) {
+    $data['html'] = $data['content'];
+    unset($data['content']);
+  }
+
+  $data = array_merge($data_default, $data);
+
+  switch ($type) {
+    case 'html':
+      $data['html'] = render($data['html']);
+      break;
+
+    case 'block':
+      // todo this is not test
+      $block = module_invoke($box_info['module'], 'block_view', $box_info['delta']);
+      $data['title'] = $block->subject;
+      $data['html'] = $block->content;
+      break;
+
+    case 'form':
+      $data['html'] = render(drupal_get_form($box_info['form_id']));
+      break;
+  }
+
+  return ajax_command_invoke(NULL, 'colorbox_popup_init_modal', array($data));
+}
+
+/**
+ * Modal window with form
+ *
+ * @param string $title
+ * @param string $form_id
+ *
+ * @return array()
+ */
+function colorbox_popup_get_form_colorbox_popup($title, $form_id) {
+  $form = drupal_get_form($form_id);
+  $modal = array(
+    'title' => $title,
+    'content' => $form
+  );
+
+  return array(
+    '#type' => 'ajax',
+    '#commands' => array(
+      colorbox_popup_init_modal($modal)
+    )
+  );
+}
+
+/**
+ * Resize current popup
+ * Autoresizing is taking place if width|height|innerHeight|innerWidth parameters are not provided.
+ *
+ * @param array $size
+ *
+ * @return array
+ */
+function colorbox_popup_resize($size = array()) {
+  return ajax_command_invoke('document', 'colorbox_popup_resize', $size);
+}

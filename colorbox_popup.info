@@ -1,0 +1,8 @@
+name = Colorbox Popup
+description = Provide colorbox`s popups with custom ajax contents
+core = 7.x
+
+version = 7.x-1.1
+project = colorbox
+
+dependencies[] = colorbox

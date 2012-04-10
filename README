@@ -1,0 +1,10 @@
+This module basedon Drupal 7.
+
+With this module we can add popup modal window with ajax processed forms and any actions.
+
+use hook_preprocess_link for configure your links or buttons
+
+use colorbox_popup_get_form_colorbox_popup and colorbox_popup_init_modal
+as features for return into ajax responce any content
+
+welcome any help to refine the module
