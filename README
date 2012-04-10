@@ -1,6 +1,6 @@
-This module basedon Drupal 7.
+This module based on Drupal 7.
 
-With this module we can add popup modal window with ajax processed forms and any actions.
+With this module we can add popup modal window with ajax processed forms and any contents.
 
 use hook_preprocess_link for configure your links or buttons
 
